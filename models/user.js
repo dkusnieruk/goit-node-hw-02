@@ -33,7 +33,6 @@ const User = mongoose.model("users", user);
 
 const registerContact = async (email, password) => {
   const hashedPassword = hashPassword(password);
-
   const user = new User({ email, password: hashedPassword });
   user.save();
   return user;
@@ -49,9 +48,21 @@ const checkEmail = async (email) => {
   return users;
 };
 
+const checkUserById = async (_id) => {
+  const users = await User.findById(_id);
+  return users;
+};
+
+const checkUserByIdAndUpdate = async (_id, token) => {
+  const usersUpdate = await User.findByIdAndUpdate(_id, token);
+  return usersUpdate;
+};
+
 module.exports = {
   registerContact,
   listContact,
   checkEmail,
   hashPassword,
+  checkUserById,
+  checkUserByIdAndUpdate,
 };
