@@ -134,10 +134,8 @@ routerRegister.patch(
   async (req, res) => {
     const id = req.user.id;
     const { path: temporaryName } = req.file;
-    const newName = `${req.body.email}.jpg`;
-    const newNameResized = `${req.body.email}resized.jpg`;
+    const newName = `${req.user.email}.jpg`;
     const fileName = path.join(storeAvatars, newName);
-    const fileResized = path.join(storeAvatars, newNameResized);
     const newURL = `localhost:3600/avatars/${newName}`;
 
     try {
