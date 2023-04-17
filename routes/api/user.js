@@ -1,5 +1,9 @@
 const express = require("express");
 const routerRegister = express.Router();
+const path = require("path");
+const fs = require("fs").promises;
+const multer = require("multer");
+const Jimp = require("jimp");
 
 const {
   registerContact,
@@ -11,17 +15,33 @@ const {
 
 const loginHandler = require("../../auth/loginHandler");
 const { registrationSchema } = require("../../models/validation");
-
 const auth = require("../../auth/auth");
 
-routerRegister.post("/signup", async (req, res) => {
+const storeImagesTmp = path.join(process.cwd(), "tmp");
+const storeAvatars = path.join(process.cwd(), "public/avatars");
+
+const storageTmp = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, storeImagesTmp);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  },
+  limits: {
+    fileSize: 1048576,
+  },
+});
+
+const uploadTmp = multer({ storage: storageTmp });
+
+routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
   const { error } = registrationSchema.validate(req.body);
   if (error) {
     return res.status(400).send(error.details[0].message);
   }
-
   const { email } = req.body;
   const users = await checkEmail({ email: email });
+
   if (users !== null) {
     return res.status(400).send("Email in use");
   }
@@ -106,5 +126,35 @@ routerRegister.get("/logout", auth, async (req, res) => {
     return res.status(500).send(err);
   }
 });
+
+routerRegister.patch(
+  "/avatars",
+  auth,
+  uploadTmp.single("avatar"),
+  async (req, res) => {
+    const id = req.user.id;
+    const { path: temporaryName } = req.file;
+    const newName = `${req.body.email}.jpg`;
+    const newNameResized = `${req.body.email}resized.jpg`;
+    const fileName = path.join(storeAvatars, newName);
+    const fileResized = path.join(storeAvatars, newNameResized);
+    const newURL = `localhost:3600/avatars/${newName}`;
+
+    try {
+      await checkUserByIdAndUpdate(id, { avatarURL: newURL });
+      await fs.rename(temporaryName, fileName);
+      Jimp.read(fileName, (err, image) => {
+        if (err) throw err;
+        image
+          .resize(256, 256) // resize
+          .write(fileName); // save
+      });
+      return res.status(200).send(newURL);
+    } catch (err) {
+      await fs.unlink(temporaryName);
+      return res.status(500).send(err);
+    }
+  }
+);
 
 module.exports = routerRegister;
