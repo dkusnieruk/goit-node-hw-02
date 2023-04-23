@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
 const gravatar = require("gravatar");
+const { v4: uuidv4 } = require("uuid");
 
 const user = new Schema({
   password: {
@@ -25,6 +26,14 @@ const user = new Schema({
   avatarURL: {
     type: String,
   },
+  verify: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+    required: [true, "Verify token is required"],
+  },
 });
 
 const hashPassword = (password) => {
@@ -32,6 +41,8 @@ const hashPassword = (password) => {
   const hashedPassword = bcrypt.hashSync(password, salt);
   return hashedPassword;
 };
+
+const generateVerifyToken = uuidv4();
 
 const User = mongoose.model("users", user);
 
@@ -42,6 +53,7 @@ const registerContact = async (email, password) => {
     email,
     password: hashedPassword,
     avatarURL: gravatarURL,
+    verificationToken: generateVerifyToken,
   });
 
   user.save();
@@ -63,8 +75,28 @@ const checkUserById = async (_id) => {
   return users;
 };
 
-const checkUserByIdAndUpdate = async (_id, token, avatarURL) => {
-  const usersUpdate = await User.findByIdAndUpdate(_id, token, avatarURL);
+const checkUserByIdAndUpdate = async (
+  _id,
+  token,
+  avatarURL,
+  verify,
+  verificationToken
+) => {
+  const usersUpdate = await User.findByIdAndUpdate(
+    _id,
+    token,
+    avatarURL,
+    verify,
+    verificationToken
+  );
+  return usersUpdate;
+};
+
+const checkUserByVerificationTokenAndUpdate = async (
+  verificationToken,
+  verify
+) => {
+  const usersUpdate = await User.findOneAndUpdate(verificationToken, verify);
   return usersUpdate;
 };
 
@@ -75,4 +107,5 @@ module.exports = {
   hashPassword,
   checkUserById,
   checkUserByIdAndUpdate,
+  checkUserByVerificationTokenAndUpdate,
 };

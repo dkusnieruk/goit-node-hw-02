@@ -11,6 +11,7 @@ const {
   checkEmail,
   checkUserById,
   checkUserByIdAndUpdate,
+  checkUserByVerificationTokenAndUpdate,
 } = require("../../models/user");
 
 const loginHandler = require("../../auth/loginHandler");
@@ -154,5 +155,32 @@ routerRegister.patch(
     }
   }
 );
+routerRegister.get("/verify/:verificationToken", auth, async (req, res) => {
+  const verificationToken = req.body.verificationToken;
+
+  try {
+    const result = await checkUserByVerificationTokenAndUpdate(
+      { verificationToken: verificationToken },
+      { verify: true, verificationToken: null }
+    );
+    if (!result) {
+      return res.status(404).send("Not found");
+    }
+
+    return res.status(200).send(result);
+  } catch (err) {
+    return res.status(500).send(err);
+  }
+});
+// const id = req.user.id;
+// const token = req.headers.authorization.split(" ");
+// // const newToken = null;
+// try {
+//   console.log(req.user);
+//   // await checkUserByIdAndUpdate(id, { token: newToken });
+//   // return res.status(204).send("No content");
+// } catch (err) {
+//   return res.status(500).send(err);
+// }
 
 module.exports = routerRegister;
