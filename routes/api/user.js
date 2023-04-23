@@ -11,6 +11,7 @@ const {
   checkEmail,
   checkUserById,
   checkUserByIdAndUpdate,
+  checkUserByVerificationTokenAndUpdate,
 } = require("../../models/user");
 
 const loginHandler = require("../../auth/loginHandler");
@@ -134,10 +135,8 @@ routerRegister.patch(
   async (req, res) => {
     const id = req.user.id;
     const { path: temporaryName } = req.file;
-    const newName = `${req.body.email}.jpg`;
-    const newNameResized = `${req.body.email}resized.jpg`;
+    const newName = `${req.user.email}.jpg`;
     const fileName = path.join(storeAvatars, newName);
-    const fileResized = path.join(storeAvatars, newNameResized);
     const newURL = `localhost:3600/avatars/${newName}`;
 
     try {
@@ -156,5 +155,32 @@ routerRegister.patch(
     }
   }
 );
+routerRegister.get("/verify/:verificationToken", auth, async (req, res) => {
+  const verificationToken = req.body.verificationToken;
+
+  try {
+    const result = await checkUserByVerificationTokenAndUpdate(
+      { verificationToken: verificationToken },
+      { verify: true, verificationToken: null }
+    );
+    if (!result) {
+      return res.status(404).send("Not found");
+    }
+
+    return res.status(200).send(result);
+  } catch (err) {
+    return res.status(500).send(err);
+  }
+});
+// const id = req.user.id;
+// const token = req.headers.authorization.split(" ");
+// // const newToken = null;
+// try {
+//   console.log(req.user);
+//   // await checkUserByIdAndUpdate(id, { token: newToken });
+//   // return res.status(204).send("No content");
+// } catch (err) {
+//   return res.status(500).send(err);
+// }
 
 module.exports = routerRegister;
