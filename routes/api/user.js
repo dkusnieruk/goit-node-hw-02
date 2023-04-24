@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs").promises;
 const multer = require("multer");
 const Jimp = require("jimp");
+const nodemailer = require("nodemailer");
 
 const {
   registerContact,
@@ -16,7 +17,7 @@ const {
 
 const loginHandler = require("../../auth/loginHandler");
 const { registrationSchema } = require("../../models/validation");
-const auth = require("../../auth/auth");
+const authorize = require("../../auth/auth");
 
 const storeImagesTmp = path.join(process.cwd(), "tmp");
 const storeAvatars = path.join(process.cwd(), "public/avatars");
@@ -50,13 +51,37 @@ routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await registerContact(email, password);
+    const link = `localhost:3600/api/users/verify/:${user.verificationToken}`;
+    const emailUser = await nodemailer.createTestAccount();
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: emailUser.user,
+        pass: emailUser.pass,
+      },
+    });
+    const info = await transporter.sendMail({
+      from: '"admin" <admin@admin.com>',
+      to: user.email,
+      subject: `Hello ${user.email}`,
+      text: `Please verify your account on the link below: localhost:3600/api/users/verify/:${user.verificationToken}`,
+      html: `<h1>Please verify your account Dear ${user.email}</h1>
+              <h2>Click on the link below</h2>
+              <a href=${link}>Click here to verify</a>`,
+    });
+    console.log(info);
+    const previewURL = nodemailer.getTestMessageUrl(info);
+    console.log(previewURL);
     return res.status(201).json(user);
   } catch {
     return res.status(500).send("Something went wrong");
   }
 });
 
-routerRegister.get("/signup", auth, async (req, res) => {
+routerRegister.get("/signup", authorize, async (req, res) => {
   try {
     const users = await listContact();
     res.status(200).json(users);
@@ -65,7 +90,7 @@ routerRegister.get("/signup", auth, async (req, res) => {
   }
 });
 
-routerRegister.get("/signup/email", auth, async (req, res) => {
+routerRegister.get("/signup/email", authorize, async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -81,7 +106,7 @@ routerRegister.get("/signup/email", auth, async (req, res) => {
   }
 });
 
-routerRegister.get("/current", auth, async (req, res) => {
+routerRegister.get("/current", authorize, async (req, res) => {
   try {
     const id = req.user.id;
     const users = await checkUserById(id);
@@ -116,7 +141,7 @@ routerRegister.post("/login", async (req, res) => {
   }
 });
 
-routerRegister.get("/logout", auth, async (req, res) => {
+routerRegister.get("/logout", authorize, async (req, res) => {
   const id = req.user.id;
   const token = req.headers.authorization.split(" ");
   const newToken = null;
@@ -130,7 +155,7 @@ routerRegister.get("/logout", auth, async (req, res) => {
 
 routerRegister.patch(
   "/avatars",
-  auth,
+  authorize,
   uploadTmp.single("avatar"),
   async (req, res) => {
     const id = req.user.id;
@@ -155,22 +180,26 @@ routerRegister.patch(
     }
   }
 );
-routerRegister.get("/verify/:verificationToken", auth, async (req, res) => {
-  const verificationToken = req.body.verificationToken;
+routerRegister.get(
+  "/verify/:verificationToken",
+  authorize,
+  async (req, res) => {
+    const verificationToken = req.body.verificationToken;
 
-  try {
-    const result = await checkUserByVerificationTokenAndUpdate(
-      { verificationToken: verificationToken },
-      { verify: true, verificationToken: null }
-    );
-    if (!result) {
-      return res.status(404).send("Not found");
+    try {
+      const result = await checkUserByVerificationTokenAndUpdate(
+        { verificationToken: verificationToken },
+        { verify: true, verificationToken: null }
+      );
+      if (!result) {
+        return res.status(404).send("Not found");
+      }
+
+      return res.status(200).send(result);
+    } catch (err) {
+      return res.status(500).send(err);
     }
-
-    return res.status(200).send(result);
-  } catch (err) {
-    return res.status(500).send(err);
   }
-});
+);
 
 module.exports = routerRegister;
