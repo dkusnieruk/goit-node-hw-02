@@ -18,6 +18,7 @@ const {
 const loginHandler = require("../../auth/loginHandler");
 const { registrationSchema } = require("../../models/validation");
 const authorize = require("../../auth/auth");
+const { verify } = require("crypto");
 
 const storeImagesTmp = path.join(process.cwd(), "tmp");
 const storeAvatars = path.join(process.cwd(), "public/avatars");
@@ -52,16 +53,25 @@ routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
     const { email, password } = req.body;
     const user = await registerContact(email, password);
     const link = `localhost:3600/api/users/verify/:${user.verificationToken}`;
-    const emailUser = await nodemailer.createTestAccount();
+
+    const getAuth = async () => {
+      const emailUser = await nodemailer.createTestAccount();
+      const etherealAuth = {
+        user: emailUser.email,
+        pass: emailUser.password,
+      };
+      if (etherealAuth.user && etherealAuth.pass) return etherealAuth;
+
+      return nodemailer.createTestAccount();
+    };
+
+    const auth = await getAuth();
 
     const transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
       port: 587,
       secure: false, // true for 465, false for other ports
-      auth: {
-        user: emailUser.user,
-        pass: emailUser.pass,
-      },
+      auth,
     });
     const info = await transporter.sendMail({
       from: '"admin" <admin@admin.com>',
@@ -184,7 +194,7 @@ routerRegister.get(
   "/verify/:verificationToken",
   authorize,
   async (req, res) => {
-    const verificationToken = req.body.verificationToken;
+    const verificationToken = req.user.verificationToken;
 
     try {
       const result = await checkUserByVerificationTokenAndUpdate(
@@ -195,11 +205,60 @@ routerRegister.get(
         return res.status(404).send("Not found");
       }
 
-      return res.status(200).send(result);
+      return res.status(200).send("Verification succesful");
     } catch (err) {
       return res.status(500).send(err);
     }
   }
 );
+
+routerRegister.post("/verify", authorize, async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).send("Missing required field email");
+  }
+
+  const users = await checkEmail({ email: email });
+  const { verificationToken, verify } = users;
+  if (verificationToken && verify !== true) {
+    const link = `localhost:3600/api/users/verify/:${users.verificationToken}`;
+
+    const getAuth = async () => {
+      const emailUser = await nodemailer.createTestAccount();
+      const etherealAuth = {
+        user: emailUser.email,
+        pass: emailUser.password,
+      };
+      if (etherealAuth.user && etherealAuth.pass) return etherealAuth;
+
+      return nodemailer.createTestAccount();
+    };
+
+    const auth = await getAuth();
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false, // true for 465, false for other ports
+      auth,
+    });
+    const info = await transporter.sendMail({
+      from: '"admin" <admin@admin.com>',
+      to: users.email,
+      subject: `Hello ${users.email}`,
+      text: `Please verify your account on the link below: localhost:3600/api/users/verify/:${users.verificationToken}`,
+      html: `<h1>Please verify your account Dear ${users.email}</h1>
+                <h2>Click on the link below</h2>
+                <a href=${link}>Click here to verify</a>`,
+    });
+    console.log(info);
+    const previewURL = nodemailer.getTestMessageUrl(info);
+    console.log(previewURL);
+    res.status(200).send("Verification email sent");
+  }
+  if (verificationToken == null && verify == true) {
+    res.status(400).send("Verification has already been passed");
+  }
+});
 
 module.exports = routerRegister;
