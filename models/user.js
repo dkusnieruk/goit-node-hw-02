@@ -37,7 +37,6 @@ const user = new Schema({
   },
 });
 
-
 const hashPassword = (password) => {
   const salt = bcrypt.genSaltSync(10);
   const hashedPassword = bcrypt.hashSync(password, salt);
@@ -58,30 +57,30 @@ const registerContact = async (email, password) => {
     verificationToken: generateVerifyToken,
   });
 
-  const auth ={
-    user:user.email,
-    pass:user.password
-  }
+  const auth = {
+    user: user.email,
+    pass: user.password,
+  };
   const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
+    host: "smtp.ethereal.email",
     port: 587,
-    secure:false,
-    auth  
-  })
-  
-  const info= await transporter.sendMail({
-    from: '"admin" <foo@example.com>', 
-    to: email, 
+    secure: false,
+    auth,
+  });
+
+  const info = await transporter.sendMail({
+    from: '"admin" <foo@example.com>',
+    to: email,
     subject: `Hello ${user.email}`,
-    text: "Click below to verify your account", 
+    text: "Click below to verify your account",
     html: `<h1>Click the link below to verify your account</h1>
             <div>
             <a href="localhost:3600/api/users/verify/:${user.verificationToken}>
             Verify account
             </a>
-            </div>` 
-});
-  const previewURL =  nodemailer.getTestMessageUrl(info);
+            </div>`,
+  });
+  const previewURL = nodemailer.getTestMessageUrl(info);
   console.log(previewURL);
   user.save();
   return user;
