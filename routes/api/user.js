@@ -172,15 +172,5 @@ routerRegister.get("/verify/:verificationToken", auth, async (req, res) => {
     return res.status(500).send(err);
   }
 });
-// const id = req.user.id;
-// const token = req.headers.authorization.split(" ");
-// // const newToken = null;
-// try {
-//   console.log(req.user);
-//   // await checkUserByIdAndUpdate(id, { token: newToken });
-//   // return res.status(204).send("No content");
-// } catch (err) {
-//   return res.status(500).send(err);
-// }
 
 module.exports = routerRegister;
