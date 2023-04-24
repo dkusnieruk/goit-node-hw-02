@@ -70,7 +70,7 @@ router.post("/", auth, async (req, res) => {
 
 router.put("/:id", auth, (req, res) => {
   const { id } = req.params;
-  console.log(id);
+
   if (!id) {
     return res.status(400).send("Id is required to update");
   }
@@ -110,7 +110,7 @@ router.patch("/:id/favorite", auth, (req, res) => {
 
   try {
     updateContact(id, req.body);
-    console.log(req.body);
+
     return res.status(200).send("User sucessfully updated");
   } catch {
     return res.status(500).send("Something went wrong");
