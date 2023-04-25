@@ -112,6 +112,7 @@ routerRegister.get("/current", authorize, async (req, res) => {
 
 routerRegister.post("/login", async (req, res) => {
   const { email, password } = req.body;
+
   const { error } = registrationSchema.validate(req.body);
   if (error) {
     return res.status(400).send(error.details[0].message);
