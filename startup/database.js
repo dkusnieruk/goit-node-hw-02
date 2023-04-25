@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const dbpath = process.env.MONGO_SECRET;
 
 if (!dbpath) {
-  throw "No dbSecret";
+  console.log("No dbSecret");
 }
 
 const connectDatabase = async () => {

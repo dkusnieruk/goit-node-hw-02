@@ -18,7 +18,6 @@ const {
 const loginHandler = require("../../auth/loginHandler");
 const { registrationSchema } = require("../../models/validation");
 const authorize = require("../../auth/auth");
-const { verify } = require("crypto");
 
 const storeImagesTmp = path.join(process.cwd(), "tmp");
 const storeAvatars = path.join(process.cwd(), "public/avatars");
@@ -37,6 +36,17 @@ const storageTmp = multer.diskStorage({
 
 const uploadTmp = multer({ storage: storageTmp });
 
+const getAuth = async () => {
+  const emailUser = await nodemailer.createTestAccount();
+  const etherealAuth = {
+    user: emailUser.email,
+    pass: emailUser.password,
+  };
+  if (etherealAuth.user && etherealAuth.pass) return etherealAuth;
+
+  return nodemailer.createTestAccount();
+};
+
 routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
   const { error } = registrationSchema.validate(req.body);
   if (error) {
@@ -53,17 +63,6 @@ routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
     const { email, password } = req.body;
     const user = await registerContact(email, password);
     const link = `localhost:3600/api/users/verify/:${user.verificationToken}`;
-
-    const getAuth = async () => {
-      const emailUser = await nodemailer.createTestAccount();
-      const etherealAuth = {
-        user: emailUser.email,
-        pass: emailUser.password,
-      };
-      if (etherealAuth.user && etherealAuth.pass) return etherealAuth;
-
-      return nodemailer.createTestAccount();
-    };
 
     const auth = await getAuth();
 
@@ -82,35 +81,12 @@ routerRegister.post("/signup", uploadTmp.single("avatar"), async (req, res) => {
               <h2>Click on the link below</h2>
               <a href=${link}>Click here to verify</a>`,
     });
-    console.log(info);
+
     const previewURL = nodemailer.getTestMessageUrl(info);
-    console.log(previewURL);
-    return res.status(201).json(user);
-  } catch {
-    return res.status(500).send("Something went wrong");
-  }
-});
 
-routerRegister.get("/signup", authorize, async (req, res) => {
-  try {
-    const users = await listContact();
-    res.status(200).json(users);
-  } catch {
-    return res.status(500).send("Something went wrong");
-  }
-});
-
-routerRegister.get("/signup/email", authorize, async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const users = await checkEmail({ email: email });
-    const payload = {
-      id: users._id,
-      email: users.email,
-      subscription: users.subscription,
-    };
-    res.status(200).json(payload);
+    return res
+      .status(201)
+      .json(`User registered, verify account on ` + previewURL);
   } catch {
     return res.status(500).send("Something went wrong");
   }
@@ -124,6 +100,8 @@ routerRegister.get("/current", authorize, async (req, res) => {
     const payload = {
       email: users.email,
       subscription: users.subscription,
+      verify: users.verify,
+      verificationToken: users.verificationToken,
     };
 
     res.status(200).json(payload);
@@ -153,7 +131,6 @@ routerRegister.post("/login", async (req, res) => {
 
 routerRegister.get("/logout", authorize, async (req, res) => {
   const id = req.user.id;
-  const token = req.headers.authorization.split(" ");
   const newToken = null;
   try {
     await checkUserByIdAndUpdate(id, { token: newToken });
@@ -222,24 +199,12 @@ routerRegister.post("/verify", authorize, async (req, res) => {
   const { verificationToken, verify } = users;
   if (verificationToken && verify !== true) {
     const link = `localhost:3600/api/users/verify/:${users.verificationToken}`;
-
-    const getAuth = async () => {
-      const emailUser = await nodemailer.createTestAccount();
-      const etherealAuth = {
-        user: emailUser.email,
-        pass: emailUser.password,
-      };
-      if (etherealAuth.user && etherealAuth.pass) return etherealAuth;
-
-      return nodemailer.createTestAccount();
-    };
-
     const auth = await getAuth();
 
     const transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
       port: 587,
-      secure: false, // true for 465, false for other ports
+      secure: false,
       auth,
     });
     const info = await transporter.sendMail({
@@ -251,10 +216,9 @@ routerRegister.post("/verify", authorize, async (req, res) => {
                 <h2>Click on the link below</h2>
                 <a href=${link}>Click here to verify</a>`,
     });
-    console.log(info);
     const previewURL = nodemailer.getTestMessageUrl(info);
-    console.log(previewURL);
-    res.status(200).send("Verification email sent");
+
+    res.status(200).send("Verification email sent to" + previewURL);
   }
   if (verificationToken == null && verify == true) {
     res.status(400).send("Verification has already been passed");

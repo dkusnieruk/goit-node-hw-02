@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 
-const { checkEmail, checkUserByIdAndUpdate } = require("../models/user");
+const { checkEmail } = require("../models/user");
 const issueToken = require("./issueToken");
 
 const loginHandler = async (email, incomingPassword) => {
@@ -13,9 +13,9 @@ const loginHandler = async (email, incomingPassword) => {
   const result = bcrypt.compareSync(incomingPassword, userPassword);
   if (result) {
     const token = issueToken(user);
-    const findAndUpdate = await checkUserByIdAndUpdate(user.id, {
-      token: token,
-    });
+    // const findAndUpdate = await checkUserByIdAndUpdate(user.id, {
+    //   token: token,
+    // });
 
     return token;
   } else {
