@@ -14,9 +14,6 @@ const auth = async (req, res, next) => {
 
     const userFound = await checkUserById(decoded.id);
 
-    if (!userFound && token !== userFound.token) {
-      res.status(401).send("Not authorized");
-    }
     req.user = userFound;
     next();
   } catch (err) {
